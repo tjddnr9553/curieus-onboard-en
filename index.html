@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Curieus — repo → model</title>
+<style>
+  :root{
+    --font:"Pretendard","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --accent:#4f6bff; --map:#0d9488;
+    --panelH:52vh;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;font-family:var(--font);}
+  .stage{position:fixed;inset:0;overflow:hidden;background:#0d1117;}
+  img{display:block;}
+
+  /* ───── P1 onboard ───── */
+  .onboard{position:absolute;inset:0;z-index:40;display:grid;place-items:center;
+    background:radial-gradient(120% 110% at 50% -10%,#fff,#e7edf6 75%);
+    transition:transform .9s cubic-bezier(.6,0,.22,1);}
+  /* transition: the onboard search bar lifts away, revealing the workspace beneath */
+  .onboard.lift{transform:translateY(-105vh);pointer-events:none;}
+  .onboard.lift .osteps,.onboard.lift .ohint{opacity:0;transition:opacity .3s;}
+  .ocard{width:760px;position:relative;}
+  .obox{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e3e8f0;border-radius:16px;padding:18px 20px;box-shadow:0 24px 60px rgba(30,41,70,.12);}
+  .obox .gh{width:30px;height:30px;fill:#5b6478;flex:none;}
+  .obox .u{flex:1;font-family:var(--mono);font-size:20px;color:#1f2937;} .obox .u .ph{color:#9aa0aa;}
+  .obox .caret{display:inline-block;width:2px;height:23px;background:var(--accent);vertical-align:-4px;animation:bl 1s step-end infinite;}@keyframes bl{50%{opacity:0;}}
+  .ent{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;font-weight:700;font-size:14px;padding:10px 18px;border-radius:10px;transition:transform .12s,box-shadow .2s;}
+  .ent.press{transform:scale(.93);box-shadow:0 0 0 6px rgba(79,107,255,.2);}
+  .ocursor{position:absolute;width:22px;height:22px;z-index:5;opacity:0;pointer-events:none;
+    transition:left .5s cubic-bezier(.4,0,.3,1),top .5s cubic-bezier(.4,0,.3,1),opacity .3s;}
+  .ocursor svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4));}
+  .osteps{margin-top:18px;display:flex;flex-direction:column;gap:7px;font-size:13px;color:#6b7280;}
+  .osteps .s{opacity:0;display:flex;gap:12px;align-items:center;transition:opacity .3s;} .osteps .s.on{opacity:1;}
+  .osteps .sk{font-weight:700;color:#1f2937;flex:none;width:205px;}
+  .osteps .sv{font-family:var(--mono);font-size:12px;color:#9aa0aa;}
+  .osteps .ok{color:#3F7458;margin-left:auto;font-weight:700;} .osteps .sp{width:13px;height:13px;border:2px solid #d8dce4;border-top-color:#9aa0aa;border-radius:50%;animation:spin .7s linear infinite;flex:none;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .ohint{margin-top:18px;font-size:13px;color:#9aa0aa;text-align:center;opacity:0;transition:opacity .4s;}
+  .ohint.on{opacity:1;}
+
+  /* ───── split ───── */
+  .split{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:60px;padding:0;
+    background:radial-gradient(120% 120% at 50% -20%,#ffffff,#e9eef6 78%);
+    perspective:1300px;perspective-origin:50% 50%;transition:transform .9s cubic-bezier(.45,0,.2,1);}
+  .split.gone{opacity:0;transition:opacity .5s;pointer-events:none;}
+  /* entrance (bottom→top) + strong perspective: the code tilts back like a backdrop, the right-hand UI pops forward */
+  .codepanel{transform:translateX(-66px) rotateY(21deg) scale(.82) translateY(54px);transform-origin:right center;transition:transform .9s cubic-bezier(.5,0,.2,1);filter:brightness(.88);}
+  .split.in .codepanel{transform:translateX(-66px) rotateY(21deg) scale(.82) translateY(0);}
+  .winwrap{transform:translateX(-18px) translateZ(150px) translateY(54px);transition:transform .9s cubic-bezier(.5,0,.2,1);}
+  .split.in .winwrap{transform:translateX(-18px) translateZ(150px) translateY(0);}
+
+  /* left code+terminal panel */
+  .codepanel{height:var(--panelH);width:600px;flex:none;background:#0b0d12;border:1px solid #232a36;border-radius:12px;
+    overflow:hidden;display:flex;flex-direction:column;box-shadow:0 26px 60px rgba(15,23,42,.24);}
+  .ctop{height:34px;flex:none;display:flex;align-items:center;gap:8px;padding:0 13px;border-bottom:1px solid #1c2130;font-family:var(--mono);font-size:11.5px;color:#6b7488;}
+  .ctop .dot{width:10px;height:10px;border-radius:50%;}.r{background:#ff5f57;}.y{background:#febc2e;}.g{background:#28c840;}
+  .codescroll{flex:1;min-height:0;overflow:hidden;position:relative;}
+  .codearea{padding:11px 16px;font-family:var(--mono);font-size:12px;line-height:1.62;white-space:pre;color:#cbd3e0;transition:transform .5s ease;}
+  .ln{display:block;padding:0 8px;margin:0 -8px;border-radius:4px;transition:background .2s,box-shadow .2s;}
+  .ln.hl{background:rgba(13,148,136,.18);box-shadow:inset 3px 0 0 var(--map);}
+  .ln.ex{background:rgba(110,231,168,.13);box-shadow:inset 3px 0 0 #6ee7a8;}
+  .kw{color:#c792ea;}.fn{color:#82aaff;}.str{color:#c3e88d;}.num{color:#f78c6c;}.cm{color:#7b8698;}.var{color:#e0af68;}.cls{color:#7fdbca;}.dec{color:#ffcb6b;}
+  /* terminal — slides up, slightly brighter */
+  .term{flex:none;height:0;overflow:hidden;background:#12161e;border-top:1px solid #232a36;
+    transition:height .55s cubic-bezier(.4,0,.2,1);font-family:var(--mono);font-size:11px;line-height:1.55;color:#aeb6c7;}
+  .term.on{height:40%;}
+  .term .tt{height:26px;display:flex;align-items:center;gap:7px;padding:0 13px;border-bottom:1px solid #232a36;color:#7c879b;font-size:10.5px;}
+  .term .inner{height:calc(100% - 26px);overflow:hidden;padding:8px 14px;}
+  .term .t{opacity:0;animation:ti .1s forwards;white-space:pre;}@keyframes ti{to{opacity:1;}}
+  .term .gr{color:#6ee7a8;}.term .bl{color:#82aaff;}.term .dm{color:#5b6478;}.term .or{color:#f7b267;}.term .pu{color:#c792ea;}.term .cy{color:#56d4c4;}
+
+  /* right window (real platform screenshots) */
+  .winwrap{display:flex;justify-content:center;flex:none;}
+  .win{height:var(--panelH);aspect-ratio:1920/1080;width:auto;max-width:100%;border-radius:12px;overflow:hidden;background:#fff;position:relative;box-shadow:0 26px 60px rgba(15,23,42,.16);outline:1px solid #e3e8f0;}
+  .win .shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .7s,clip-path 1.1s cubic-bezier(.45,0,.2,1);}
+  .win .shot.on{opacity:1;}
+  .win .afterimg{opacity:1;clip-path:inset(0 0 100% 0);}
+  .cursor{position:absolute;width:20px;height:20px;z-index:6;opacity:0;pointer-events:none;transition:left .55s cubic-bezier(.4,0,.3,1),top .55s cubic-bezier(.4,0,.3,1),opacity .3s;}
+  .cursor svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4));}
+  .ripple{position:absolute;width:11px;height:11px;border-radius:50%;border:2px solid var(--map);z-index:5;opacity:0;transform:translate(-50%,-50%);pointer-events:none;}
+  .ripple.go{animation:rip .5s ease-out;}@keyframes rip{from{opacity:.85;transform:translate(-50%,-50%) scale(.6);}to{opacity:0;transform:translate(-50%,-50%) scale(6);}}
+  .clabel{position:absolute;z-index:6;background:var(--map);color:#fff;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:5px;opacity:0;transition:opacity .25s,left .55s,top .55s;pointer-events:none;}
+  .clabel.on{opacity:1;}
+  /* ── P6 result view: the REAL result page; zoom crops pop out of the structure ── */
+  .resultview{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:#fdfdfd;
+    opacity:0;pointer-events:none;transition:opacity .6s ease;}
+  .resultview.on{opacity:1;pointer-events:auto;}
+  .resultview .resultframe{width:94%;max-height:84vh;}
+  .resultframe{position:relative;aspect-ratio:1606/746;max-width:100%;max-height:100%;
+    border-radius:14px;overflow:hidden;background:#fff;border:1px solid #e3e8f0;box-shadow:0 26px 70px rgba(15,23,42,.22);}
+  .resultimg{width:100%;height:100%;object-fit:fill;display:block;}
+  .hot{position:absolute;width:30px;height:30px;border-radius:50%;transform:translate(-50%,-50%);
+    border:2px solid var(--accent);opacity:0;pointer-events:none;transition:opacity .3s;}
+  .hot.on{opacity:1;animation:hotp 1.4s ease-out infinite;}
+  @keyframes hotp{0%{box-shadow:0 0 0 0 rgba(79,107,255,.5);}100%{box-shadow:0 0 0 13px rgba(79,107,255,0);}}
+  .zarrow{position:absolute;inset:0;width:100%;height:100%;z-index:7;pointer-events:none;overflow:visible;opacity:0;transition:opacity .3s;}
+  .zarrow.on{opacity:1;}
+  .zoomcard{position:absolute;left:45%;top:24%;width:18.5%;aspect-ratio:1/1;z-index:8;
+    transform:translate(-50%,-50%) scale(.62);border-radius:16px;background:#fff;padding:5px;
+    box-shadow:0 30px 70px rgba(20,28,50,.42),0 8px 22px rgba(20,28,50,.24);
+    outline:2.5px solid var(--accent);outline-offset:0;opacity:0;pointer-events:none;
+    transition:opacity .3s,transform .44s cubic-bezier(.2,.9,.3,1);}
+  .zoomcard.on{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  .zinner{position:relative;width:100%;height:100%;border-radius:11px;overflow:hidden;background:#0b0d12;}
+  .zoomcard img{width:100%;height:100%;object-fit:cover;display:block;}
+  .zcap{position:absolute;left:0;right:0;bottom:0;padding:8px 11px 9px;
+    background:linear-gradient(to top,rgba(11,13,18,.93),rgba(11,13,18,.5) 72%,transparent);}
+  .zcap b{display:block;color:#fff;font-size:12px;font-weight:800;letter-spacing:-.01em;}
+  .zcap span{display:block;color:#cdd6e6;font-size:10px;font-weight:600;margin-top:2px;font-family:var(--mono);}
+  .rcursor{position:absolute;width:22px;height:22px;z-index:9;opacity:0;pointer-events:none;
+    transition:left .5s cubic-bezier(.4,0,.3,1),top .5s cubic-bezier(.4,0,.3,1),opacity .3s;}
+  .rcursor svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4));}
+  .rripple{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid var(--accent);z-index:8;opacity:0;transform:translate(-50%,-50%);pointer-events:none;}
+  .rripple.go{animation:rip .55s ease-out;}
+
+  /* result-mode: code panel pushed out (almost invisible), form fades */
+  .split.result .codepanel{transform:translateX(-64px);opacity:.1;transition:transform .6s cubic-bezier(.5,0,.2,1),opacity .55s;}
+  .split.result .win{opacity:0;transition:opacity .5s;}
+
+  /* flying result-card → grid */
+  .flycard{position:absolute;z-index:62;border-radius:13px;overflow:hidden;box-shadow:0 30px 70px rgba(15,23,42,.3);opacity:0;}
+  .flycard img{width:100%;height:100%;object-fit:cover;}
+
+  /* model grid */
+  .grid{position:absolute;inset:0;z-index:60;background:#fff;display:grid;place-items:center;opacity:0;pointer-events:none;transition:opacity .5s;overflow:hidden;}
+  .grid.on{opacity:1;}
+  .grid::after{content:"";position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(to top,#fff 30%,transparent);z-index:3;}
+  .more{position:absolute;bottom:26px;z-index:5;display:flex;align-items:center;gap:8px;background:#1F1F1E;color:#fff;
+    font-size:15px;font-weight:700;padding:12px 24px;border-radius:999px;box-shadow:0 14px 34px rgba(15,23,42,.26);
+    opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s;}.more.on{opacity:1;transform:none;}
+  .wall{display:grid;grid-template-columns:repeat(5,300px);gap:16px;padding-top:16px;}
+  .mc{width:300px;aspect-ratio:1.75/1;border-radius:13px;overflow:hidden;position:relative;background:#18181b;box-shadow:0 10px 26px rgba(15,23,42,.12);opacity:0;transform:scale(.94) translateY(5px);}
+  .mc.in{animation:pop .5s cubic-bezier(.2,.7,.2,1) forwards;}@keyframes pop{to{opacity:1;transform:none;}}
+  .mc.seatglow{animation:seat 1s ease-out;}
+  @keyframes seat{0%{box-shadow:0 0 0 0 rgba(79,107,255,.55),0 10px 26px rgba(15,23,42,.12);}100%{box-shadow:0 0 0 18px rgba(79,107,255,0),0 10px 26px rgba(15,23,42,.12);}}
+  .mc img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .mc .gd{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 45%,rgba(0,0,0,.8));}
+  .mc .m{position:absolute;left:0;right:0;bottom:0;padding:9px 12px;}.mc h4{color:#fff;font-size:15px;font-weight:800;}.mc .p{font-size:9px;font-weight:700;color:#fff;padding:2px 7px;border-radius:5px;margin-top:4px;display:inline-block;}
+
+  /* ════ Motion integration: result video → play button → dynamics + heatmap → 4 modes ════ */
+  .resultframe video.rvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:2;transition:opacity .4s;}
+  /* result → Motion transition: refined frosted-glass CTA + accent play circle */
+  .mplay{position:absolute;left:50%;top:60%;transform:translate(-50%,-50%) translateY(12px);z-index:12;
+    display:flex;align-items:center;gap:13px;padding:8px 28px 8px 8px;border-radius:999px;
+    background:#16181d;border:1px solid rgba(255,255,255,.07);
+    box-shadow:0 16px 38px rgba(0,0,0,.34),0 3px 10px rgba(0,0,0,.22);
+    opacity:0;pointer-events:none;transition:opacity .45s ease,transform .45s cubic-bezier(.2,.8,.2,1);}
+  .mplay.show{opacity:1;transform:translate(-50%,-50%) translateY(0);}
+  .mplay img{display:none;}
+  .mplay .pc{width:50px;height:50px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
+    background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.25);}
+  .mplay .pc .tri{width:0;height:0;border-left:15px solid #16181d;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:4px;}
+  .mplay .lbl{font-size:20px;font-weight:700;color:#fff;letter-spacing:-.01em;padding-right:2px;}
+  .mplay .lbl small{display:block;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.5);letter-spacing:0;margin-top:3px;}
+  .mplay.press{transform:translate(-50%,-50%) scale(.96);}
+  .mplay.gone{opacity:0;transform:translate(-50%,-50%) scale(1.08);}
+  /* glow ring spreading out from the button */
+  .mring{position:absolute;left:50%;top:60%;transform:translate(-50%,-50%);z-index:11;width:300px;height:80px;
+    border-radius:999px;opacity:0;}
+  .mring.go{opacity:0;}
+  @keyframes mrg{0%{box-shadow:0 0 0 2px rgba(79,107,255,.38);}100%{box-shadow:0 0 0 46px rgba(79,107,255,0);}}
+
+  .motionview{position:absolute;inset:0;z-index:19;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    background:#fdfdfd;opacity:0;pointer-events:none;transition:opacity .6s ease;}
+  .motionview.on{opacity:1;pointer-events:auto;}
+  .mtitle{text-align:center;opacity:0;transform:translateY(-8px);transition:opacity .55s ease,transform .55s ease;}
+  .mtitle.on{opacity:1;transform:none;}
+  .mtitle .t{display:flex;align-items:center;justify-content:center;gap:18px;font-size:28px;font-weight:800;color:#111;letter-spacing:-.02em;}
+  .mtitle .t b{color:var(--accent);font-weight:800;}
+  .mtitle .micon{height:68px;width:auto;display:block;}
+  .mtitle .mlogo{height:50px;width:auto;display:block;}
+  .mtitle .s{margin-top:15px;font-size:20px;font-weight:600;color:#7a828f;letter-spacing:-.01em;}
+  .mframe{width:88%;max-height:80vh;aspect-ratio:2/1;border-radius:14px;overflow:hidden;
+    background:#fff;border:1px solid #e3e8f0;box-shadow:0 26px 70px rgba(15,23,42,.22);}
+  .mframe video{width:100%;height:100%;object-fit:cover;display:block;background:#fdfdfd;}
+
+  /* ── end card: the logo writes on like handwriting → gloss sweep → tagline ── */
+  .endcard{position:absolute;inset:0;z-index:80;display:grid;place-items:center;
+    background:linear-gradient(180deg,#ffffff 0%,#f6f8fb 100%);opacity:0;pointer-events:none;transition:opacity .7s ease;}
+  .endcard.on{opacity:1;}
+  .endcard .ecard{position:relative;display:flex;flex-direction:column;align-items:center;}
+  .endcard .logowrap{position:relative;width:520px;opacity:0;transform:scale(.84);}
+  .endcard.on .logowrap{animation:epop .42s cubic-bezier(.2,1.35,.4,1) .1s forwards;}
+  .endcard .logowrap img{width:100%;display:block;}
+  .endcard .pen,.endcard .shine{display:none;}
+  .endcard .rule{width:0;height:2px;margin:32px 0 18px;border-radius:2px;
+    background:linear-gradient(90deg,transparent,var(--accent),var(--teal,#0d9488),transparent);}
+  .endcard.on .rule{animation:erule .9s cubic-bezier(.4,0,.2,1) .75s forwards;}
+  .endcard .tagline{font-size:23px;font-weight:700;color:#1F1F1E;letter-spacing:-.005em;opacity:0;transform:translateY(8px);}
+  .endcard.on .tagline{animation:eup .7s ease-out 1.0s forwards;}
+  @keyframes epop{to{opacity:1;transform:scale(1);}}
+  @keyframes esweep{0%{opacity:0;background-position:135% 0;}14%{opacity:1;}86%{opacity:1;}100%{opacity:0;background-position:-35% 0;}}
+  @keyframes erule{to{width:240px;}}
+  @keyframes eup{to{opacity:1;transform:none;}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <!-- P1 onboard -->
+  <div class="onboard" id="onboard"><div class="ocard">
+    <div class="obox">
+      <svg class="gh" viewBox="0 0 24 24"><path d="M12 1a11 11 0 0 0-3.5 21.4c.6.1.8-.2.8-.6v-2c-3 .7-3.7-1.4-3.7-1.4-.5-1.3-1.2-1.6-1.2-1.6-1-.7.1-.7.1-.7 1.1.1 1.7 1.1 1.7 1.1 1 1.7 2.6 1.2 3.2.9.1-.7.4-1.2.7-1.5-2.4-.3-5-1.2-5-5.3 0-1.2.4-2.1 1.1-2.9-.1-.3-.5-1.4.1-2.8 0 0 .9-.3 3 1.1a10 10 0 0 1 5.4 0c2-1.4 3-1.1 3-1.1.6 1.4.2 2.5.1 2.8.7.8 1.1 1.7 1.1 2.9 0 4.1-2.6 5-5 5.3.4.3.8 1 .8 2.1v3.1c0 .4.2.7.8.6A11 11 0 0 0 12 1z"/></svg>
+      <span class="u" id="ourl"><span class="ph">Paste a repository URL</span></span>
+      <span class="ent" id="entbtn">↵ Enter</span>
+    </div>
+    <div class="osteps" id="osteps">
+      <div class="s" id="os1"><span class="sk">Clone repository</span><span class="sv">github.com/HannesStark/boltzgen · 14 files</span><span class="ok">✓</span></div>
+      <div class="s" id="os2"><span class="sk">Language · framework</span><span class="sv">Python 3.10 · PyTorch 2.3</span><span class="ok">✓</span></div>
+      <div class="s" id="os3"><span class="sk">Dependency analysis</span><span class="sv">torch · hydra-core · omegaconf · flash-attn</span><span class="ok">✓</span></div>
+      <div class="s" id="os4"><span class="sk">Extra packages</span><span class="sv">biopython · rdkit-pypi · ANARCI · einops</span><span class="ok">✓</span></div>
+      <div class="s" id="os5"><span class="sk">Runtime environment</span><span class="sv">conda env (python=3.10) · CUDA 12.1</span><span class="ok">✓</span></div>
+      <div class="s" id="os6"><span class="sk">GPU requirements</span><span class="sv">NVIDIA A100 80G · bf16 · ~14 GB VRAM</span><span class="ok">✓</span></div>
+      <div class="s" id="os7"><span class="sk">Weight download</span><span class="sv">weights/boltz1.ckpt · 1.42 GB</span><span class="ok">✓</span></div>
+      <div class="s" id="os8"><span class="sk">Entrypoint detection</span><span class="sv">inference.py :: main(cfg)</span><span class="ok">✓</span></div>
+      <div class="s" id="os9"><span class="sk">Config parsing</span><span class="sv">configs/default.yaml (hydra)</span><span class="ok">✓</span></div>
+      <div class="s" id="os10"><span class="sk">Input schema inference</span><span class="sv">protocol · scaffold · template · cdr_loops · num_samples</span><span class="ok">✓</span></div>
+      <div class="s" id="os11"><span class="sk">Output schema</span><span class="sv">PDB · iPTM/pAE · interface metrics</span><span class="ok">✓</span></div>
+      <div class="s" id="os12"><span class="sk">UI component mapping</span><span class="sv">form fields ↔ CLI args</span><span class="ok">✓</span></div>
+    </div>
+    <div class="ohint" id="ohint">Generating the analysis page…</div>
+    <div class="ocursor" id="ocursor"><svg viewBox="0 0 24 24" fill="#1f2937" stroke="#fff" stroke-width="1.4"><path d="M5 3l15 9-6 1.5L11 20z"/></svg></div>
+  </div></div>
+
+  <!-- split -->
+  <div class="split" id="split">
+    <!-- left: code + terminal -->
+    <div class="codepanel">
+      <div class="ctop"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>&nbsp;boltzgen / inference.py</div>
+      <div class="codescroll"><div class="codearea" id="codearea"></div></div>
+      <div class="term" id="term"><div class="tt">▌ TERMINAL</div><div class="inner" id="terminner"></div></div>
+    </div>
+    <!-- right: window -->
+    <div class="winwrap">
+      <div class="win" id="win">
+        <img class="shot" id="shotBefore" src="assets/analysis_form_before_en.png">
+        <img class="shot afterimg" id="shotAfter" src="assets/analysis_form_after_en.png">
+        <div class="ripple" id="ripple"></div>
+        <div class="clabel" id="clabel">protocol</div>
+        <div class="cursor" id="cursor"><svg viewBox="0 0 24 24" fill="#1f2937" stroke="#fff" stroke-width="1.4"><path d="M5 3l15 9-6 1.5L11 20z"/></svg></div>
+      </div>
+    </div>
+    <!-- P6 result view: the REAL result page (structure + chord), zoom crops pop from the structure -->
+    <div class="resultview" id="resultview">
+      <div class="resultframe" id="resultframe">
+        
+        <video class="rvid" id="resultvid" muted playsinline preload="auto" style="opacity:0"><source src="assets/analysis_result.mp4" type="video/mp4"></video>
+        <svg class="zarrow" id="zarrow"><defs><marker id="ahead" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f6bff"/></marker><filter id="zglow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1" stdDeviation="1.6" flood-color="#ffffff" flood-opacity="0.95"/></filter></defs><path id="zpath" fill="none" stroke="#4f6bff" stroke-width="2.6" stroke-linecap="round" marker-end="url(#ahead)" filter="url(#zglow)"/><circle id="zdot" r="5.5" fill="#4f6bff" stroke="#fff" stroke-width="2" filter="url(#zglow)"/></svg>
+        <div class="zoomcard" id="zoomcard"><div class="zinner"><img id="zoomimg" alt=""><div class="zcap"><b id="zcapT"></b><span id="zcapS"></span></div></div></div>
+        <div class="hot" id="hot99" style="left:72.7%;top:38.0%"></div>
+        <div class="hot" id="hot52" style="left:83.8%;top:41.0%"></div>
+        <div class="rripple" id="rripple"></div>
+        <div class="rcursor" id="rcursor"><svg viewBox="0 0 24 24" fill="#1f2937" stroke="#fff" stroke-width="1.4"><path d="M5 3l15 9-6 1.5L11 20z"/></svg></div>
+        <div class="mring" id="mring"></div>
+        <div class="mplay" id="mplay"><span class="pc"><i class="tri"></i></span><span class="lbl">Run molecular dynamics<small>Start the simulation from the same pose</small></span></div>
+      </div>
+    </div>
+  </div>
+
+  <img class="flycard" id="flycard" src="assets/boltzgen.webp">
+  <div class="grid" id="grid"><div class="wall" id="wall"></div><div class="more" id="more">＋ 85+ analysis models · Browse all →</div></div>
+
+  <!-- Motion integration: same-pose structure + metrics + heatmap (real Motion page) -->
+  <div class="motionview" id="motionview">
+    <div class="mtitle" id="mtitle">
+      <div class="t"><img class="micon" src="assets/motion_icon.png" alt=""><img class="mlogo" src="assets/motion_logo.png" alt="Motion"></div>
+      <div class="s">Track contacts and metrics frame by frame, in the same pose</div>
+    </div>
+    <div class="mframe"><video id="mstruct" muted loop playsinline preload="auto"><source src="assets/motion_antibody_en.mp4" type="video/mp4"></video></div>
+  </div>
+
+  <!-- end card (logo) -->
+  <div class="endcard" id="endcard">
+    <div class="ecard">
+      <div class="logowrap">
+        <img src="assets/dark_logo.png" alt="Curieus">
+        <div class="pen"></div><div class="shine"></div>
+      </div>
+      <div class="rule"></div>
+      <div class="tagline">AI-native platform for drug discovery</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $=id=>document.getElementById(id);
+  const COVER="assets/";
+  const timers=[]; const at=(t,fn)=>timers.push(setTimeout(fn,t));
+
+  // rich code
+  const CODE=[
+    ['cm','# boltzgen / inference.py — generative binder design'],
+    ['','<span class="kw">from</span> __future__ <span class="kw">import</span> annotations'],
+    ['','<span class="kw">import</span> torch, hydra, numpy <span class="kw">as</span> np'],
+    ['','<span class="kw">from</span> omegaconf <span class="kw">import</span> DictConfig'],
+    ['','<span class="kw">from</span> boltzgen.model <span class="kw">import</span> BoltzGen, EMA'],
+    ['','<span class="kw">from</span> boltzgen.diffusion <span class="kw">import</span> EDMSampler, recycle'],
+    ['','<span class="kw">from</span> boltzgen.features <span class="kw">import</span> featurize, ProtocolSpec'],
+    ['','<span class="kw">from</span> boltzgen.io <span class="kw">import</span> load_scaffold, write_outputs'],
+    ['',''],
+    ['c-proto','<span class="dec">@hydra.main</span>(config_path=<span class="str">"configs"</span>, config_name=<span class="str">"default"</span>)'],
+    ['c-proto','<span class="kw">def</span> <span class="fn">main</span>(cfg: DictConfig):'],
+    ['c-proto','    spec = <span class="cls">ProtocolSpec</span>.<span class="fn">from_cfg</span>(cfg.<span class="var">protocol</span>)   <span class="cm"># antibody / protein / ...</span>'],
+    ['c-scaf','    scaffold = <span class="fn">load_scaffold</span>(cfg.<span class="var">scaffold</span>, cfg.<span class="var">template</span>)'],
+    ['c-cdr','    mask = <span class="fn">cdr_mask</span>(scaffold, loops=cfg.<span class="var">cdr_loops</span>)   <span class="cm"># H1..H3,L1..L3</span>'],
+    ['','    feats = <span class="fn">featurize</span>(spec, scaffold, mask, device=<span class="str">"cuda"</span>)'],
+    ['',''],
+    ['','    model = <span class="cls">BoltzGen</span>.<span class="fn">from_pretrained</span>(<span class="str">"weights/boltz1.ckpt"</span>)'],
+    ['','    model = <span class="fn">EMA</span>(model).<span class="fn">eval</span>().<span class="fn">cuda</span>().<span class="fn">half</span>()'],
+    ['','    sampler = <span class="cls">EDMSampler</span>(steps=<span class="num">200</span>, churn=<span class="num">0.3</span>, sigma_max=<span class="num">80</span>)'],
+    ['',''],
+    ['','    designs = []'],
+    ['c-run','    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(cfg.<span class="var">num_samples</span>):'],
+    ['c-run','        x = torch.<span class="fn">randn</span>(feats.shape, device=<span class="str">"cuda"</span>)'],
+    ['c-run','        <span class="kw">for</span> t <span class="kw">in</span> sampler.<span class="fn">sigmas</span>():'],
+    ['c-run','            x = sampler.<span class="fn">step</span>(model, x, t, feats)'],
+    ['c-run','            x = <span class="fn">recycle</span>(model, x, feats, n=<span class="num">3</span>)'],
+    ['c-run','        designs.<span class="fn">append</span>(<span class="fn">unfeaturize</span>(x))'],
+    ['',''],
+    ['','    ranked = <span class="fn">rank_by_iptm</span>(designs, model.confidence)'],
+    ['','    ranked = <span class="fn">refold_validate</span>(ranked, ref=<span class="str">"boltz1"</span>)'],
+    ['','    <span class="fn">write_outputs</span>(ranked, <span class="str">"outputs/"</span>, top_k=<span class="num">10</span>)'],
+    ['','    <span class="kw">return</span> ranked'],
+  ];
+  const ca=$('codearea');
+  ca.innerHTML=CODE.map(l=>`<span class="ln" data-k="${l[0]}" style="opacity:0">${l[1]||'&nbsp;'}</span>`).join('');
+  const lns=[...ca.querySelectorAll('.ln')];
+  const hlByKey=k=>lns.forEach(e=>e.classList.toggle('hl',e.dataset.k===k));
+  const clearHl=()=>lns.forEach(e=>{e.classList.remove('hl');e.classList.remove('ex');});
+  const moveCur=(x,y)=>{const c=$('cursor');c.style.opacity=1;c.style.left=x;c.style.top=y;};
+  const clickFx=(x,y)=>{const r=$('ripple');r.style.left=x;r.style.top=y;r.classList.remove('go');void r.offsetWidth;r.classList.add('go');};
+  const showLabel=(x,y,t)=>{const l=$('clabel');l.textContent=t;l.style.left=x;l.style.top=y;l.classList.add('on');};
+  const hideLabel=()=>$('clabel').classList.remove('on');
+  // form-field click → highlight the matching code argument (click and highlight fire after the cursor arrives)
+  function linkField(codeKey,wx,wy,label){
+    moveCur((wx*100)+'%',(wy*100)+'%');                       // 1) move cursor (~0.55s)
+    at(620,()=>{                                              // 2) on arrival: click + highlight code
+      clickFx((wx*100)+'%',(wy*100)+'%');
+      at(150,()=>{ hlByKey(codeKey); showLabel((wx*100)+'%',((wy*100)-7)+'%',label); });
+    });
+  }
+  function countUp(el,to,dur,dec){let s=null;const f=ts=>{if(s===null)s=ts;const p=Math.min((ts-s)/dur,1);
+    const e=1-Math.pow(1-p,3);el.textContent=(to*e).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+    if(p<1)requestAnimationFrame(f);};requestAnimationFrame(f);}
+
+  // result-phase interaction helpers (chord residue zoom)
+  const IMG1="";
+  const IMG2="";
+  const rmoveCur=(fx,fy)=>{const c=$('rcursor');c.style.opacity=1;c.style.left=(fx*100)+'%';c.style.top=(fy*100)+'%';};
+  const rclick=(fx,fy)=>{const r=$('rripple');r.style.left=(fx*100)+'%';r.style.top=(fy*100)+'%';r.classList.remove('go');void r.offsetWidth;r.classList.add('go');};
+  function showZoom(ox,oy,img,title,sub){
+    const fr=$('resultframe').getBoundingClientRect();
+    $('zoomimg').src=img;$('zcapT').textContent=title;$('zcapS').textContent=sub;$('zoomcard').classList.add('on');
+    const cw=0.185*fr.width,hx=0.45*fr.width-cw/2,hy=0.24*fr.height+cw/2; // arrow head = inset bottom-left corner
+    const sx=ox*fr.width,sy=oy*fr.height;                                 // origin = structure centre
+    const mx=(sx+hx)/2,my=(sy+hy)/2,dx=hx-sx,dy=hy-sy,len=Math.hypot(dx,dy)||1,off=Math.min(46,len*0.16);
+    const cx=mx+(dy/len)*off,cy=my-(dx/len)*off;                          // gentle upward arc
+    $('zpath').setAttribute('d',`M ${sx} ${sy} Q ${cx} ${cy} ${hx} ${hy}`);
+    $('zdot').setAttribute('cx',sx);$('zdot').setAttribute('cy',sy);
+    $('zarrow').classList.add('on');
+  }
+  const hideZoom=()=>{$('zoomcard').classList.remove('on');$('zarrow').classList.remove('on');};
+
+  // ── P1: fast typing → cursor to Enter → click → steps ──
+  const URL="https://github.com/HannesStark/boltzgen";
+  let i=0;const tw=setInterval(()=>{$('ourl').innerHTML=URL.slice(0,++i)+'<span class="caret"></span>';if(i>=URL.length)clearInterval(tw);},22);timers.push(tw);
+  at(1250,()=>{const card=document.querySelector('.ocard').getBoundingClientRect();
+    const b=$('entbtn').getBoundingClientRect(),o=$('ocursor');
+    o.style.opacity=1;o.style.left=(b.left-card.left+b.width*0.5-3)+'px';o.style.top=(b.top-card.top+b.height*0.5-2)+'px';});
+  at(1850,()=>$('entbtn').classList.add('press'));
+  at(2050,()=>{$('entbtn').classList.remove('press');$('ocursor').style.opacity=0;});
+  ['os1','os2','os3','os4','os5','os6','os7','os8','os9','os10','os11','os12'].forEach((id,k)=>at(2150+k*150,()=>$(id).classList.add('on')));
+  at(4000,()=>$('ohint').classList.add('on'));
+
+  // ── P2: split reveal (code fades in) ──
+  at(5000,()=>{$('onboard').classList.add('lift');$('split').classList.add('in');
+    lns.forEach((e,k)=>at(180+k*45,()=>e.style.opacity=1));at(420,()=>$('shotBefore').classList.add('on'));});
+
+  // ── P3: form fill (cursor → Antibody-Anything protocol card → wipe) ──
+  at(6700,()=>moveCur('41%','50%'));
+  at(7400,()=>moveCur('53%','36.9%'));
+  at(8100,()=>{clickFx('53%','36.9%');$('shotAfter').style.clipPath='inset(0 0 0 0)';});
+
+  // ── P4: pressing a form field highlights the matching code argument (clicks land on real UI positions) ──
+  at(9600,()=>linkField('c-proto',0.530,0.369,'protocol'));
+  at(10950,()=>linkField('c-scaf',0.260,0.609,'scaffold · template'));
+  at(12300,()=>linkField('c-cdr',0.237,0.778,'cdr_loops'));
+  at(13550,()=>{clearHl();hideLabel();moveCur('93.7%','95.1%');});
+
+  // ── P5: run → terminal slides up, rich scrolling log ──
+  at(14100,()=>{
+    clickFx('93.7%','95.1%');$('term').classList.add('on');const ti=$('terminner');
+    const T=[
+      ['dm','$ python -m boltzgen.inference protocol=antibody scaffold=opdivo cdr_loops=all num_samples=25'],
+      ['bl','[hydra]  config resolved · device=cuda:0 (A100-80G) · bf16 · seed=42'],
+      ['dm','[env]    torch 2.3.1+cu121 · flash-attn 2.5.8 · triton 2.3 · xformers 0.0.26'],
+      ['dm','[env]    cudnn 8.9.7 · nccl 2.20 · cuda-graphs enabled'],
+      ['dm','[load]   weights/boltz1.ckpt   '],['gr','✓ 1.42 GB · EMA · 312M params'],
+      ['bl','[feat]   ANARCI per-chain · Fab H/L detected · 224 residues'],
+      ['dm','[feat]   MSA depth 512 · templates 4 · pair repr 128×128 · single 384'],
+      ['dm','[feat]   scaffold Opdivo(Nivolumab) · CDR mask H1..H3,L1..L3 · 47 pos'],
+      ['cy','[graph]  torch.compile · cuda-graph captured · 38 fused kernels'],
+      ['pu','[diff]   EDM sampler · 200 steps · churn=0.3 · recycle=3 · cfg=2.0'],
+      ['dm','  ▸ design 01 │ step 040/200 σ=21.42 ‖x‖=38.10'],
+      ['dm','  ▸ design 01 │ step 100/200 σ=6.81  ‖x‖=17.44'],
+      ['dm','  ▸ design 01 │ step 160/200 σ=1.12  ‖x‖=5.93'],
+      ['dm','  ▸ design 01 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.83 pAE 4.1 clash 0'],
+      ['dm','  ▸ design 02 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.79 pAE 4.6'],
+      ['dm','  ▸ design 05 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.86 pAE 3.6'],
+      ['dm','  ▸ design 07 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.88 pAE 3.2  ★ best'],
+      ['dm','  ▸ design 09 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.82 pAE 4.3'],
+      ['dm','  ▸ design 12 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.80 pAE 4.9'],
+      ['dm','  ▸ design 15 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.84 pAE 4.0'],
+      ['dm','  ▸ design 18 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.85 pAE 3.9'],
+      ['dm','  ▸ design 21 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.81 pAE 4.5'],
+      ['dm','  ▸ design 24 │ step 200/200 σ=0.02  '],['gr','✓ iPTM 0.83 pAE 4.2'],
+      ['pu','[mem]    peak 41.2 / 80 GB · activations checkpointed · no OOM'],
+      ['or','[sample] ██████████░░░░░░░░░░  12/25  3.0 it/s'],
+      ['or','[sample] ██████████████░░░░░░  18/25  3.1 it/s'],
+      ['or','[sample] ████████████████████  25/25  done · 8.1 s'],
+      ['bl','[score]  iPTM · ipSAE · pDockQ · interface-clash · SASA'],
+      ['dm','[score]  interface contacts 112 · buried SASA 1,240 Å² · H-bonds 19'],
+      ['cy','[refold] Boltz-1 re-fold validation · 10/10 consistent (RMSD < 1.5 Å)'],
+      ['bl','[rank]   sorting 25 designs by composite confidence → top-10'],
+      ['dm','[write]  outputs/rank01_boltzgen_5.pdb   ✓'],
+      ['dm','[write]  outputs/rank02_boltzgen_3.pdb   ✓'],
+      ['dm','[write]  outputs/rank03_boltzgen_9.pdb … rank10_boltzgen_8.pdb   ✓'],
+      ['dm','[write]  outputs/report.json · metrics.csv · interface.pdb'],
+      ['gr','✓ done · 25 designs · best iPTM 0.88 → outputs/  (8.4 s)'],
+    ];
+    T.forEach((t,k)=>at(450+k*125,()=>{const d=document.createElement('div');d.className='t '+t[0];d.innerHTML=t[1];ti.appendChild(d);ti.scrollTop=ti.scrollHeight;}));
+    // code: 2-line window sweeps loop body (no jitter)
+    const loop=lns.map((e,k)=>k).filter(k=>k>=16&&k<=26);
+    let s=0;const sw=setInterval(()=>{lns.forEach(e=>e.classList.remove('ex'));
+      const a=loop[s%loop.length],b=loop[(s+1)%loop.length];if(lns[a])lns[a].classList.add('ex');if(lns[b])lns[b].classList.add('ex');s++;},80);timers.push(sw);
+    at(5600,()=>{clearInterval(sw);clearHl();});
+  });
+
+  // ── P6: result video → Motion play button → dynamics + heatmap → 4 modes ──
+  (function(){
+    const rv=$('resultvid'); if(rv){rv.addEventListener('loadeddata',()=>rv.style.opacity=1);rv.addEventListener('error',()=>rv.style.display='none');}
+  })();
+  at(20400,()=>{
+    $('split').classList.add('result');
+    at(300,()=>{
+      $('resultview').classList.add('on');
+      const rv=$('resultvid');
+      if(rv){
+        let done=false; const go=()=>{ if(done)return; done=true; afterResult(); };
+        rv.addEventListener('ended',go);                 // advance only once the video actually ends
+        rv.addEventListener('error',()=>at(11100,go));    // assume a duration if it fails to load
+        rv.play().catch(()=>at(11100,go));
+      } else { at(11100,afterResult); }
+    });
+  });
+  // beats that follow the end of the result video (auto-synced to its length)
+  function afterResult(){
+    at(1000,()=>{ $('mplay').classList.add('show'); $('mring').classList.add('go');   // button appears + soft glow
+      at(520,()=>rmoveCur(0.5,0.64)); });                                            // cursor travels to the button
+    at(2700,()=>{ $('mplay').classList.add('press'); rclick(0.5,0.64); });           // click
+    at(2950,()=>{ $('mplay').classList.remove('press'); $('mplay').classList.add('gone'); $('mring').classList.remove('go'); $('rcursor').style.opacity=0;
+      at(220,()=>{ $('resultview').classList.remove('on'); $('motionview').classList.add('on');
+        const ms=$('mstruct'); if(ms) ms.play().catch(()=>{});
+        at(450,()=>$('mtitle').classList.add('on')); }); });
+    // play the motion clip (~17.2s) all the way through, then move to the model library
+    at(20400,()=>startP7());                                 // Motion (full playback) → model library
+  }
+
+  // ── P7: BoltzGen seats first, then the library fills in go-board (raster) order ──
+  function startP7(){
+    const wall=$('wall');
+    const M=[
+      ['alphaflow','AlphaFlow','#4338CA'],['diffdock','DiffDock','#B45309'],['proteinmpnn','ProteinMPNN','#4338CA'],['chai','Chai-1','#4338CA'],['openfold3','OpenFold3','#4338CA'],
+      ['abodybuilder3','ABodyBuilder3','#15803D'],['gnina','GNINA','#B45309'],['ligandmpnn','LigandMPNN','#4338CA'],['equibind','EquiBind','#B45309'],['protenix','Protenix','#4338CA'],
+      ['bioemu','BioEmu','#4338CA'],['haddock3','HADDOCK3','#4338CA'],['__hole__','BoltzGen','#4338CA'],['dynamicbind','DynamicBind','#B45309'],['immunebuilder','ImmuneBuilder','#15803D'],
+      ['gromacs','GROMACS','#4338CA'],['antifold','AntiFold','#15803D'],['deepfri','DeepFRI','#4338CA'],['pocketgen','PocketGen','#B45309'],['flowdock','FlowDock','#B45309'],
+      ['boltz','Boltz','#4338CA'],['admet-ai','ADMET-AI','#B45309'],['biophi','BioPhi','#15803D'],['mdanalysis','MDAnalysis','#4338CA'],['freebindcraft','FreeBindCraft','#4338CA'],
+      ['dscript','D-SCRIPT','#4338CA'],['hemopi','Hemopi','#B45309'],['netsolp','NetSolP','#4338CA'],['crisprdesign','CrisprDesign','#7E22CE'],['deepfri','DeepFRI','#4338CA'],
+    ];
+    const cards=[];
+    M.forEach((m,k)=>{const d=document.createElement('div');
+      if(m[0]==='__hole__'){d.className='mc';d.id='holecell';d.style.visibility='hidden';wall.appendChild(d);cards.push(null);return;}
+      d.className='mc';d.dataset.k=k;
+      d.innerHTML=`<img src="${COVER}${m[0]}.webp"><div class="gd"></div><div class="m"><h4>${m[1]}</h4><span class="p" style="background:${m[2]}99">Protein</span></div>`;
+      wall.appendChild(d);cards.push(d);});
+    // over the empty board (cards still hidden), the playing Motion frame is pulled into the centre gap
+    $('mtitle').classList.remove('on');
+    $('split').classList.add('gone');$('grid').classList.add('on');
+    // raise the Motion frame above the grid but keep its background transparent → it slides into the gap with the board visible behind (video keeps playing)
+    const mv=$('motionview'),mf=document.querySelector('.mframe');
+    mv.style.zIndex='63';mv.style.background='transparent';
+    at(180,()=>{const cell=$('holecell').getBoundingClientRect(),fr=mf.getBoundingClientRect();
+      const s=cell.width/fr.width,dx=(cell.left+cell.width/2)-(fr.left+fr.width/2),dy=(cell.top+cell.height/2)-(fr.top+fr.height/2);
+      mf.style.transition='transform 1.15s cubic-bezier(.45,.02,.2,1)';
+      mf.style.transform='translate('+dx+'px,'+dy+'px) scale('+s+')';});
+    // seat → crossfade into the BoltzGen card → the rest then fill in random go-board order
+    at(1360,()=>{const c=$('holecell');c.style.visibility='visible';c.style.opacity='1';c.style.transform='none';
+      c.innerHTML=`<img src="${COVER}boltzgen.webp"><div class="gd"></div><div class="m"><h4>BoltzGen</h4><span class="p" style="background:#4338CA99">Protein</span></div>`;
+      at(120,()=>c.classList.add('seatglow'));
+      mv.style.transition='opacity .6s ease';mv.style.opacity='0';
+      at(640,()=>{mv.classList.remove('on');mv.style.zIndex='';mv.style.opacity='';mv.style.background='';mf.style.transition='none';mf.style.transform='';});
+      // once BoltzGen is seated, the remaining cards settle in random order
+      const order=[];cards.forEach((d,i)=>{if(d)order.push(i);});
+      for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=order[i];order[i]=order[j];order[j]=t;}
+      order.forEach((idx,rank)=>{const d=cards[idx];
+        d.style.transform='scale('+(0.90+Math.random()*0.06).toFixed(3)+') translate('+(Math.random()*16-8).toFixed(1)+'px,'+(Math.random()*16-8).toFixed(1)+'px)';
+        d.style.animationDelay=(0.15+rank*0.05).toFixed(3)+'s';d.classList.add('in');});});
+    at(2400,()=>$('more').classList.add('on'));
+    at(4700,()=>$('endcard').classList.add('on'));   // hold the library briefly → logo end card
+  }
+
+  addEventListener('keydown',e=>{if(e.key.toLowerCase()==='r'){timers.forEach(clearTimeout);location.reload();}});
+</script>
+</body>
+</html>
